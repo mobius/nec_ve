@@ -15,6 +15,12 @@ CXXFLAGS = -O3 -fopenmp
 FFLAGS   = -O3 -fopenmp
 LDFLAGS  =
 
+# NLC BLAS flags
+NLC_HOME     = /opt/nec/ve/nlc/3.1.0
+NLC_INC      = -I$(NLC_HOME)/include
+NLC_LIB      = -L$(NLC_HOME)/lib
+NLC_LDFLAGS  = $(NLC_LIB) -lcblas -lblas_openmp -Wl,-rpath,$(NLC_HOME)/lib
+
 # AVEO flags (host-side, use g++)
 AVEO_CXX     = g++
 AVEO_INC     = -I/opt/nec/ve/veos/include
@@ -28,7 +34,7 @@ VEINFO_CFLAGS  = $(CXXFLAGS) $(VEINFO_INC)
 VEINFO_LDFLAGS = -lveosinfo
 
 # Binaries
-VE_BINS   = sample_bin ve_float_test ve_matmul ve_bandwidth ve_mem_check
+VE_BINS   = sample_bin ve_float_test ve_matmul ve_bandwidth ve_mem_check ve_nlc_dgemm
 MPI_BINS  = mpi_hello mpi_allreduce_test mpi_pingpong
 HOST_BINS = aveo_multi_test aveo_bandwidth ve_segfault
 ALL_BINS  = $(VE_BINS) $(MPI_BINS) $(HOST_BINS)
@@ -58,6 +64,9 @@ ve_bandwidth: ve_bandwidth.c
 
 ve_mem_check: ve_mem_check.c
 	$(NCC) $(CFLAGS) -o $@ $<
+
+ve_nlc_dgemm: ve_nlc_dgemm.c
+	$(NCC) $(CFLAGS) $(NLC_INC) -o $@ $< $(NLC_LDFLAGS)
 
 # MPI binaries
 mpi_hello: mpi_hello.c

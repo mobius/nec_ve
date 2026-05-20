@@ -231,6 +231,15 @@ run_perf_tests() {
     run_test "TC-PERF-006" "Power & Thermal Monitor" \
         "bash $SCRIPT_DIR/scripts/perf_power.sh" \
         "grep -q 'PASS'"
+
+    NLC_LIB=/opt/nec/ve/nlc/3.1.0/lib
+    if [ -f "${NLC_LIB}/libblas_openmp.so" ]; then
+        run_test "TC-PERF-007" "NLC cblas_dgemm Baseline" \
+            "bash $SCRIPT_DIR/scripts/perf_nlc_dgemm.sh" \
+            "grep -q 'PASS'"
+    else
+        skip_test "TC-PERF-007" "NLC cblas_dgemm Baseline" "NLC library not installed (${NLC_LIB})"
+    fi
 }
 
 # ==================== STRS Tests ====================

@@ -200,6 +200,7 @@ bash run_tests.sh fail     # 只运行故障恢复测试
 | TC-PERF-004 | PCIe 传输带宽（AVEO） | H2D ~10 GB/s，D2H ~5.3 GB/s |
 | TC-PERF-005 | MPI Ping-Pong 延迟 | SKIP（mpirun 未安装） |
 | TC-PERF-006 | 功耗与温度监控 | 满载 ~99W/卡，峰值温度 ~64°C |
+| TC-PERF-007 | **NLC cblas_dgemm 基线** | VE1/VE2/VE3：**~1750 GFLOPS**（峰值 81%）|
 
 ### TC-STRS：稳定性/压力（3 项）
 
@@ -228,16 +229,16 @@ bash run_tests.sh fail     # 只运行故障恢复测试
 
 ## 性能汇总
 
-### 算力（DGEMM，4096×4096，FP64，nfort 内核）
+### 算力（DGEMM，4096×4096，FP64，8 线程）
 
-| 卡 | 优化前（单线程 C） | 优化后（nfort 混合，8 线程） | 峰值占比 |
-|----|-----------------|---------------------------|---------|
-| VE1 | 54.16 GFLOPS | **433.9 GFLOPS** | 20.1% |
-| VE2 | 54.08 GFLOPS | **433.8 GFLOPS** | 20.1% |
-| VE3 | 53.81 GFLOPS | **431.9 GFLOPS** | 20.0% |
-| **三卡并行** | **162.04 GFLOPS** | **~1300 GFLOPS** | ~20% |
+| 方法 | VE1 | VE2 | VE3 | 峰值占比 |
+|------|-----|-----|-----|---------|
+| 原始单线程 C 基线 | 54 GFLOPS | 54 GFLOPS | 54 GFLOPS | 2.5% |
+| nfort 混合内核（opt(1800)） | 434 GFLOPS | 434 GFLOPS | 432 GFLOPS | 20% |
+| **NLC cblas_dgemm（最优）** | **~1750 GFLOPS** | **~1750 GFLOPS** | **~1750 GFLOPS** | **~81%** |
+| 理论峰值 | 2160 GFLOPS | 2160 GFLOPS | 2160 GFLOPS | 100% |
 
-> 理论峰值：2160 GFLOPS/卡（DP）。优化路径：单线程 C → C+OpenMP tiling（155 GFLOPS）→ C+Fortran 混合（**433 GFLOPS**，+8×）。
+> NLC (NEC Numeric Library Collection) 3.1.0，安装：`dnf install nec-nlc-inst nec-nlc-base-3.1.0 nec-blas-ve-3.1.0 nec-blas-ve-devel-3.1.0`
 
 ### 内存带宽（HBM，优化后）
 
@@ -292,6 +293,7 @@ bash run_tests.sh fail     # 只运行故障恢复测试
 | `docs/research/20260520_034418_performance_gap_analysis.md` | 理论 vs 实测性能差距分析（Roofline 模型） |
 | `docs/plan/` | 测试计划与依赖分析 |
 | `docs/impl/20260520_013000_nec_ve_final_results.md` | 初始测试结果报告（42/42 PASS） |
-| `docs/impl/20260520_050000_openmp_nfort_optimization.md` | **nfort 优化迭代记录**（54 → 433 GFLOPS，完整优化历程） |
+| `docs/impl/20260520_050000_openmp_nfort_optimization.md` | nfort 优化迭代记录（54 → 433 GFLOPS） |
+| `docs/impl/20260520_053000_nlc_blas_validation.md` | **NLC BLAS 验证记录**（433 → ~1750 GFLOPS，峰值 81%）|
 | `Three_Card_Test_Cases.md` | 测试案例详细设计 |
 | `NEC_VE_Installation_Report.md` | 软件安装报告 |
