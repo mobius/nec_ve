@@ -1,0 +1,23 @@
+# Compiled VE binaries
+PerfTest/ve_matmul
+PerfTest/ve_bandwidth
+PerfTest/ve_float_test
+PerfTest/ve_mem_check
+PerfTest/ve_segfault
+PerfTest/aveo_bandwidth
+PerfTest/aveo_multi_test
+PerfTest/mpi_hello
+PerfTest/mpi_allreduce_test
+PerfTest/mpi_pingpong
+PerfTest/sample_bin
+
+# Compiler artifacts
+PerfTest/*.o
+PerfTest/*.L
+
+# Test run logs and results (generated at runtime)
+PerfTest/logs/
+PerfTest/results/
+
+# AI tool config (not part of project)
+.deepseek/
