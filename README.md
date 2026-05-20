@@ -1,7 +1,9 @@
 # NEC Vector Engine 1.0 三卡性能测试套件
 
 适用于 ESC4000 G4 服务器（Rocky Linux 8.x）上安装了三块 NEC VE 1.0 卡的环境。  
-**测试结果：42/42 PASS，覆盖硬件识别、驱动、功能、多卡并行、性能基准、稳定性、NUMA 亲和及故障恢复。**
+**测试结果：39/42 PASS，0 FAIL，3 SKIP（MPI 相关，需 mpirun），覆盖硬件识别、驱动、功能、多卡并行、性能基准、稳定性、NUMA 亲和及故障恢复。**
+
+> 🚀 **最新优化（2026-05-20）**：切换至 nfort C+Fortran 混合内核，DGEMM 性能从 **54 GFLOPS → 433 GFLOPS（+8×，达峰值 20%）**。
 
 ---
 
@@ -25,7 +27,8 @@ nec_ve/
 │   │   ├── perf_pcie.sh
 │   │   ├── perf_latency.sh
 │   │   └── ...（其余脚本见 scripts/ 目录）
-│   ├── ve_matmul.c            # 核心 benchmark：N×N 矩阵乘法（VE native）
+│   ├── ve_matmul.c            # 核心 benchmark：C 测试框架，调用 Fortran DGEMM 内核
+│   ├── ve_dgemm_kernel.f90    # Fortran DGEMM 内核（nfort opt(1800)，433 GFLOPS）
 │   ├── ve_bandwidth.c         # HBM 带宽测试（VE native）
 │   ├── ve_mem_check.c         # HBM 内存大小验证（VE native）
 │   ├── ve_float_test.c        # 浮点精度测试（VE native）
@@ -117,7 +120,8 @@ make clean      # 清除编译产物
 
 | 类型 | 编译器 | 说明 |
 |------|--------|------|
-| VE native | `ncc` / `nc++` | 运行在 VE 卡上的程序 |
+| VE native（C harness） | `ncc` / `nc++` | 运行在 VE 卡上的程序 |
+| VE native（DGEMM 内核） | `nfort` | Fortran 编译器，触发 opt(1800) 矩阵乘法 idiom |
 | MPI | `mpicc` | NEC MPI，运行在 VE 卡上 |
 | AVEO Host | `g++` + `-lveo` | 运行在 x86 主机，通过 AVEO 调用 VE |
 
@@ -190,11 +194,11 @@ bash run_tests.sh fail     # 只运行故障恢复测试
 
 | ID | 测试内容 | 结果 |
 |----|---------|------|
-| TC-PERF-001 | 单卡 MatMul 算力基线 | VE1/VE2/VE3：54.16 / 54.08 / 53.81 GFLOPS |
-| TC-PERF-002 | HBM 内存带宽 | 353 – 358 GB/s |
-| TC-PERF-003 | 三卡并行总吞吐 | 162.04 GFLOPS |
+| TC-PERF-001 | 单卡 MatMul 算力基线（nfort 优化后） | VE1/VE2/VE3：**433.9 / 433.8 / 431.9 GFLOPS** |
+| TC-PERF-002 | HBM 内存带宽 | **1062 GB/s**（78.7% 理论峰值） |
+| TC-PERF-003 | 三卡并行总吞吐 | **~1300 GFLOPS**（三卡合计） |
 | TC-PERF-004 | PCIe 传输带宽（AVEO） | H2D ~10 GB/s，D2H ~5.3 GB/s |
-| TC-PERF-005 | MPI Ping-Pong 延迟 | ~1.52 – 1.54 μs（所有节点对） |
+| TC-PERF-005 | MPI Ping-Pong 延迟 | SKIP（mpirun 未安装） |
 | TC-PERF-006 | 功耗与温度监控 | 满载 ~99W/卡，峰值温度 ~64°C |
 
 ### TC-STRS：稳定性/压力（3 项）
@@ -224,22 +228,26 @@ bash run_tests.sh fail     # 只运行故障恢复测试
 
 ## 性能汇总
 
-### 算力
+### 算力（DGEMM，4096×4096，FP64，nfort 内核）
 
-| 卡 | 矩阵乘法算力（4096×4096，FP64） |
-|----|-------------------------------|
-| VE1 | 54.16 GFLOPS |
-| VE2 | 54.08 GFLOPS |
-| VE3 | 53.81 GFLOPS |
-| **三卡并行** | **162.04 GFLOPS** |
+| 卡 | 优化前（单线程 C） | 优化后（nfort 混合，8 线程） | 峰值占比 |
+|----|-----------------|---------------------------|---------|
+| VE1 | 54.16 GFLOPS | **433.9 GFLOPS** | 20.1% |
+| VE2 | 54.08 GFLOPS | **433.8 GFLOPS** | 20.1% |
+| VE3 | 53.81 GFLOPS | **431.9 GFLOPS** | 20.0% |
+| **三卡并行** | **162.04 GFLOPS** | **~1300 GFLOPS** | ~20% |
 
-### 内存带宽（HBM）
+> 理论峰值：2160 GFLOPS/卡（DP）。优化路径：单线程 C → C+OpenMP tiling（155 GFLOPS）→ C+Fortran 混合（**433 GFLOPS**，+8×）。
 
-| 卡 | 带宽 |
-|----|------|
-| VE1 | 358.28 GB/s |
-| VE2 | 358.28 GB/s |
-| VE3 | 353.34 GB/s |
+### 内存带宽（HBM，优化后）
+
+| 卡 | 带宽 | 理论峰值占比 |
+|----|------|------------|
+| VE1 | **1062 GB/s** | 78.7% |
+| VE2 | **1062 GB/s** | 78.7% |
+| VE3 | **1062 GB/s** | 78.7% |
+
+> 理论峰值：1350 GB/s（HBM2）。带宽提升来自 OpenMP 8 线程并行访问，原单线程为 353–358 GB/s。
 
 ### PCIe 传输（AVEO）
 
@@ -281,7 +289,9 @@ bash run_tests.sh fail     # 只运行故障恢复测试
 | 路径 | 内容 |
 |------|------|
 | `docs/research/` | 硬件环境调研（PCIe 拓扑、NUMA、软件栈） |
+| `docs/research/20260520_034418_performance_gap_analysis.md` | 理论 vs 实测性能差距分析（Roofline 模型） |
 | `docs/plan/` | 测试计划与依赖分析 |
-| `docs/impl/20260520_013000_nec_ve_final_results.md` | **最终测试结果报告**（含完整性能数据） |
+| `docs/impl/20260520_013000_nec_ve_final_results.md` | 初始测试结果报告（42/42 PASS） |
+| `docs/impl/20260520_050000_openmp_nfort_optimization.md` | **nfort 优化迭代记录**（54 → 433 GFLOPS，完整优化历程） |
 | `Three_Card_Test_Cases.md` | 测试案例详细设计 |
 | `NEC_VE_Installation_Report.md` | 软件安装报告 |
