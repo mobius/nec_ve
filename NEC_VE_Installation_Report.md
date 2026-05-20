@@ -358,13 +358,51 @@ sudo ln -sf /opt/nec/ve/ncc/3.1.0/lib/libncc.so.2.8.0 /opt/nec/ve/lib/libncc.so.
 
 ---
 
-## 11. 后续建议
+## 11. 后续安装记录
+
+### 11.1 已安装的可选组件
+
+#### NLC (NEC Numeric Library Collection) 3.1.0 — 2026-05-20 安装
+
+在基础软件栈安装完成后，为 TC-PERF-007（高性能 DGEMM）额外安装了 NLC BLAS：
+
+```bash
+sudo dnf install -y nec-nlc-inst nec-nlc-base-3.1.0 \
+                    nec-blas-ve-3.1.0 nec-blas-ve-devel-3.1.0
+```
+
+**安装结果：**
+
+| 包名 | 版本 | 说明 |
+|------|------|------|
+| `nec-nlc-inst` | 3.1.0-2 | 目录结构 + 软链接 |
+| `nec-nlc-base-3.1.0` | 2.2-1 | 环境变量脚本（nlcvars.sh） |
+| `nec-blas-ve-3.1.0` | 2.6-1 | `libblas_openmp.so`（VE 原生 BLAS 实现） |
+| `nec-blas-ve-devel-3.1.0` | 2.6-1 | `cblas.h` + 静态库 `.a` |
+
+**安装位置：**
+- 库文件：`/opt/nec/ve/nlc/3.1.0/lib/`（`libblas_openmp.so`, `libcblas.so` 等）
+- 头文件：`/opt/nec/ve/nlc/3.1.0/include/cblas.h`
+
+**注意事项：**
+- `nec-nlc-inst-runtime` 与 `nec-nlc-inst` 互斥，二者只能安装其一
+- NLC 库为 VE 架构 ELF，运行时需设置 `VE_LD_LIBRARY_PATH=/opt/nec/ve/nlc/3.1.0/lib`
+- CBLAS 接口（`cblas_dgemm`）在 `libcblas.so` 中，链接时需同时指定 `-lcblas -lblas_openmp`
+
+**性能验证结果（2026-05-20）：**
+
+| VE 卡 | N=4096 DGEMM | GFLOPS | 峰值利用率 |
+|-------|--------------|--------|-----------|
+| VE1   | ~1750        | ~1750  | 81%       |
+| VE2   | ~1750        | ~1750  | 81%       |
+| VE3   | ~1750        | ~1750  | 81%       |
+
+### 11.2 未来建议
 
 1. **如需 InfiniBand 网络**: 安装 `yum groupinstall "InfiniBand for SX-Aurora TSUBASA for Mellanox OFED 23.10-3.2.2.0"`
-2. **如需数值库**: 安装 NEC Numeric Library Collection (`nec-blas-ve`, `nec-lapack-ve` 等)
+2. **如需 LAPACK**: 安装 `nec-lapack-ve-3.1.0`（与 `nec-blas-ve-3.1.0` 相同机制）
 3. **如需 Python**: 安装 NLCPy (`yum groupinstall "NLCPy 3.0.1 for develop"`)
 4. **如需容器**: 从 GitHub 克隆 `singularity` 仓库，参考 Apptainer 配置
-5. **如需更多示例**: `/tmp/examples` 目录下有 cmake、autotools、MPI 等多种示例
 
 ---
 
@@ -383,5 +421,5 @@ sudo ln -sf /opt/nec/ve/ncc/3.1.0/lib/libncc.so.2.8.0 /opt/nec/ve/lib/libncc.so.
 
 ---
 
-*报告生成时间: 2026-05-19*  
-*NEC Vector Engine Driver: 3.6.1 | VEOS: 3.6.1 | Compiler: NCC/NFORT 5.4.1 | MPI: 3.10.0*
+*报告生成时间: 2026-05-19 | 最后更新: 2026-05-20*  
+*NEC Vector Engine Driver: 3.6.1 | VEOS: 3.6.1 | Compiler: NCC/NFORT 5.4.1 | MPI: 3.10.0 | NLC: 3.1.0*

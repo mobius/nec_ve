@@ -1,5 +1,7 @@
 #!/bin/bash
-# 安装 NEC MPI runtime 和 nfort shared 库，以解锁 5 项跳过的测试用例
+# 安装 NEC VE 测试套件所需的所有可选软件包：
+#   - NEC MPI runtime / nfort shared（解锁 MPI 相关测试）
+#   - NLC BLAS（解锁 TC-PERF-007 高性能 DGEMM 测试）
 # 需要 sudo 权限执行
 
 set -e
@@ -34,6 +36,16 @@ fi
 sudo ldconfig
 
 echo ""
+echo "=== 安装 NLC BLAS（提供高性能 cblas_dgemm，解锁 TC-PERF-007）==="
+NLC_LIB=/opt/nec/ve/nlc/3.1.0/lib/libblas_openmp.so
+if [ ! -f "$NLC_LIB" ]; then
+    sudo dnf install -y nec-nlc-inst nec-nlc-base-3.1.0 \
+                        nec-blas-ve-3.1.0 nec-blas-ve-devel-3.1.0
+else
+    echo "  已安装，跳过"
+fi
+
+echo ""
 echo "=== 验证安装 ==="
 
 MPI_RUN="$MPI_ROOT/bin64/runtime/mpirun"
@@ -48,6 +60,13 @@ if [ -f "$NFORT_LIB_PATH" ]; then
     echo "  [OK] libnfort_m.so.2: $NFORT_LIB_PATH (VE arch library)"
 else
     echo "  [FAIL] libnfort_m.so.2 未找到"
+fi
+
+NLC_CHECK=/opt/nec/ve/nlc/3.1.0/lib/libblas_openmp.so
+if [ -f "$NLC_CHECK" ]; then
+    echo "  [OK] NLC BLAS: $NLC_CHECK"
+else
+    echo "  [SKIP] NLC BLAS 未安装（TC-PERF-007 将被跳过）"
 fi
 
 echo ""

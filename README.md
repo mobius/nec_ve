@@ -73,17 +73,31 @@ nec_ve/
 
 ## 前置条件
 
-### 必须安装的软件包
+### 系统已安装软件包（完整清单）
+
+以下为本测试套件实际运行环境的所有 NEC 软件包，通过 `dnf install` 安装：
 
 ```bash
-# NEC VE 基础软件栈（驱动、VEOS、编译器）
-yum install ve_drv-dkms veos veosinfo nec-nc++ nec-ncc
+# 1. VEOS 基础栈（驱动、内核模块、运行时）—— 通常由系统管理员预装
+#    ve_drv-kmod, veos, veos-devel, veos-headers, veosinfo, veosinfo3
+#    ve-firmware, veosctl, veos-libveptrace
 
-# MPI runtime
-yum install nec-mpi-runtime-3-10-0
+# 2. NEC 编译器套件（免费，来自 nec-sdk-community）
+sudo dnf install -y nec-nc++-5.4.1 nec-nfort-5.4.1
 
-# AVEO nfort shared library（VE 侧动态库）
-yum install nec-nfort-shared-5.4.1
+# 3. 编译器运行时共享库
+sudo dnf install -y nec-nc++-shared-5.4.1 nec-nc++-compat-shared-5.4.1 \
+                    nec-nfort-shared-5.4.1
+
+# 4. 性能分析库（veperf，用于 TC-PERF 测试）
+sudo dnf install -y nec-veperf-libs-2.4.0 nec-veperf-devel-2.4.0
+
+# 5. MPI 全套（运行时 + 开发库）
+sudo dnf install -y nec-mpi-runtime-3-10-0 nec-mpi-devel-3-10-0
+
+# 6. NLC (NEC Numeric Library Collection) 3.1.0 —— 高性能 BLAS/LAPACK
+sudo dnf install -y nec-nlc-inst nec-nlc-base-3.1.0 \
+                    nec-blas-ve-3.1.0 nec-blas-ve-devel-3.1.0
 ```
 
 安装后激活 MPI 环境变量：
@@ -91,6 +105,33 @@ yum install nec-nfort-shared-5.4.1
 ```bash
 source /opt/nec/ve/mpi/3.10.0/bin64/necmpivars-runtime.sh
 ```
+
+### 最小安装（仅运行测试套件，不含 NLC）
+
+```bash
+sudo dnf install -y nec-nc++-5.4.1 nec-nfort-5.4.1 \
+  nec-nc++-shared-5.4.1 nec-nc++-compat-shared-5.4.1 nec-nfort-shared-5.4.1 \
+  nec-veperf-libs-2.4.0 nec-mpi-runtime-3-10-0
+```
+
+> **注意**：不安装 NLC 时，TC-PERF-007 自动 SKIP（不影响其余 39 个测试）。
+
+### 软件包说明
+
+| 包名 | 版本 | 用途 |
+|------|------|------|
+| `ve_drv-kmod` | 3.6.1 | VE PCIe 内核驱动 |
+| `veos` | 3.6.1 | VE OS 运行时 |
+| `veosinfo` / `veosinfo3` | 2.11 / 3.6 | VE 状态查询工具 |
+| `nec-nc++-5.4.1` | 5.4.1 | ncc / nc++ C/C++ 编译器 |
+| `nec-nfort-5.4.1` | 5.4.1 | nfort Fortran 编译器（DGEMM opt(1800) 关键） |
+| `nec-nfort-shared-5.4.1` | 5.4.1 | `libnfort_m.so.2`（VE native，需 VE_LD_LIBRARY_PATH） |
+| `nec-veperf-libs-2.4.0` | 2.4.0 | VE 性能计数器库 |
+| `nec-mpi-runtime-3-10-0` | 3.10.0 | mpirun（TC-PERF-005/TC-MULT-* 需要） |
+| `nec-nlc-inst` | 3.1.0 | NLC 目录结构和软链接 |
+| `nec-nlc-base-3.1.0` | 3.1.0 | NLC 环境变量脚本 |
+| `nec-blas-ve-3.1.0` | 2.6 | `libblas_openmp.so`（TC-PERF-007 需要） |
+| `nec-blas-ve-devel-3.1.0` | 2.6 | `cblas.h` + 静态库 |
 
 > `libnfort_m.so.2` 是 VE 架构 ELF（machine 251），**不能**用 `ldconfig` 注册。  
 > 运行时由 VE 动态链接器通过 `VE_LD_LIBRARY_PATH` 加载（`common.sh` 自动设置，无需手动操作）。
