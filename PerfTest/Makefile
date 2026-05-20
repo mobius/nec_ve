@@ -6,11 +6,13 @@
 # Compilers and flags
 NCC      = ncc
 NCXX     = nc++
+NFORT    = nfort
 MPICC    = mpicc
 MPICXX   = mpinc++
 
-CFLAGS   = -O3
-CXXFLAGS = -O3
+CFLAGS   = -O3 -fopenmp
+CXXFLAGS = -O3 -fopenmp
+FFLAGS   = -O3 -fopenmp
 LDFLAGS  =
 
 # AVEO flags (host-side, use g++)
@@ -45,8 +47,11 @@ sample_bin: sample.c
 ve_float_test: ve_float_test.c
 	$(NCC) $(CFLAGS) -o $@ $<
 
-ve_matmul: ve_matmul.c
-	$(NCC) $(CFLAGS) -o $@ $<
+ve_dgemm_kernel.o: ve_dgemm_kernel.f90
+	$(NFORT) $(FFLAGS) -c -o $@ $<
+
+ve_matmul: ve_matmul.c ve_dgemm_kernel.o
+	$(NFORT) $(FFLAGS) -o $@ $^
 
 ve_bandwidth: ve_bandwidth.c
 	$(NCC) $(CFLAGS) -o $@ $<

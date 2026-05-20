@@ -8,9 +8,9 @@ for i in $VE_NODES; do
     OUT=$(ve_exec -N "$i" ./ve_matmul 2>&1)
     GF=$(echo "$OUT" | grep "GFlops:" | awk '{print $2}')
     echo "VE$i: ${GF} GFLOPS"
-    # Check if GFLOPS is reasonable (> 5 to account for very small matrices)
-    if [ -z "$GF" ] || [ "$(echo "$GF < 5" | bc 2>/dev/null || echo 1)" -eq 1 ]; then
-        echo "VE$i: FAIL (performance too low or missing)"
+    # Threshold: nfort hybrid DGEMM should exceed 350 GFLOPS
+    if [ -z "$GF" ] || [ "$(echo "$GF < 350" | bc 2>/dev/null || echo 1)" -eq 1 ]; then
+        echo "VE$i: FAIL (performance too low or missing, expected >350 GFLOPS with nfort+8-core OMP)"
         PASS=false
     fi
 done
